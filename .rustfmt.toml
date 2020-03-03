@@ -1,7 +1,7 @@
 blank_lines_upper_bound = 2
 enum_discrim_align_threshold = 8
 struct_field_align_threshold = 8
-hard_tabs = true
+hard_tabs = false
 imports_layout = "HorizontalVertical"
 imports_indent = "Visual"
 indent_style = "Visual"

@@ -22,9 +22,9 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 
 mod cs {
-	vulkano_shaders::shader! {
-		ty: "compute",
-		src: "
+    vulkano_shaders::shader! {
+        ty: "compute",
+        src: "
 #version 450
 
 #define M_PI 3.1415926535897932384626433832795
@@ -54,13 +54,13 @@ layout(set = 0, binding = 2, rgba8) uniform writeonly image2D out_image;
 #define HASHSCALE4 vec4(1031, .1030, .0973, .1099)
 
 float hash13(vec3 p3) {
-	p3  = fract(p3 * HASHSCALE1);
+    p3  = fract(p3 * HASHSCALE1);
     p3 += dot(p3, p3.yzx + 19.19);
     return fract((p3.x + p3.y) * p3.z);
 }
 
 float getAtIdx(vec3 v, int i) {
- 	if (i == 0) return v.x;
+     if (i == 0) return v.x;
     else if (i == 1) return v.y;
     else if (i == 2) return v.z;
     else return 0.;
@@ -79,22 +79,22 @@ void main() {
     if(pconst.reset) out_buf.data[index] = hash13(vec3(pos, pconst.frame)) * 2;
     else {
         uint neighs = 0;
-	    vec3 hues = vec3(0);
-		for(uint y = pos.y - 1; y <= pos.y + 1; y++) {
-		    for(uint x = pos.x - 1; x <= pos.x + 1; x++) {
-		        if(in_buf.data[x + y * pconst.width] >= 1) {
-		            neighs++;
-					hues.yz = hues.xy;
-				    hues.x = in_buf.data[x + y * pconst.width];
-		        }
-		    }
-		}
-		
-		bool alive = in_buf.data[index] >= 1;
-		
-		if(!alive && neighs == 3) out_buf.data[index] = getAtIdx(hues, int(floor(mod(hash13(vec3(pos, pconst.frame)), 3. ))));
-		else if(alive && (neighs < 3 || neighs > 4)) out_buf.data[index] = in_buf.data[index] - 1;
-		else out_buf.data[index] = in_buf.data[index];
+        vec3 hues = vec3(0);
+        for(uint y = pos.y - 1; y <= pos.y + 1; y++) {
+            for(uint x = pos.x - 1; x <= pos.x + 1; x++) {
+                if(in_buf.data[x + y * pconst.width] >= 1) {
+                    neighs++;
+                    hues.yz = hues.xy;
+                    hues.x = in_buf.data[x + y * pconst.width];
+                }
+            }
+        }
+        
+        bool alive = in_buf.data[index] >= 1;
+        
+        if(!alive && neighs == 3) out_buf.data[index] = getAtIdx(hues, int(floor(mod(hash13(vec3(pos, pconst.frame)), 3. ))));
+        else if(alive && (neighs < 3 || neighs > 4)) out_buf.data[index] = in_buf.data[index] - 1;
+        else out_buf.data[index] = in_buf.data[index];
     }
     
     vec4 color = vec4(hsv2rgb(vec3(
@@ -104,284 +104,278 @@ void main() {
     )), 1.0);
     imageStore(out_image, pos, color);
 }"
-	}
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-	println!("List of Vulkan debugging layers available to use:");
-	let mut layers = vulkano::instance::layers_list().unwrap();
-	while let Some(l) = layers.next() {
-		println!("\t{}", l.name());
-	}
+    println!("List of Vulkan debugging layers available to use:");
+    let mut layers = vulkano::instance::layers_list().unwrap();
+    while let Some(l) = layers.next() {
+        println!("\t{}", l.name());
+    }
 
-	let instance = {
-		let app_infos = app_info_from_cargo_toml!();
-		let extensions = InstanceExtensions { ext_debug_utils: true,
-		                                      ..vulkano_win::required_extensions() };
-		let layers = vec!["VK_LAYER_LUNARG_standard_validation"];
-		Instance::new(Some(&app_infos), &extensions, layers)?
-	};
+    let instance = {
+        let app_infos = app_info_from_cargo_toml!();
+        let extensions = InstanceExtensions { ext_debug_utils: true,
+                                              ..vulkano_win::required_extensions() };
+        let layers = vec!["VK_LAYER_LUNARG_standard_validation"];
+        Instance::new(Some(&app_infos), &extensions, layers)?
+    };
 
-	let severity = MessageSeverity { error:       true,
-	                                 warning:     true,
-	                                 information: false,
-	                                 verbose:     true, };
+    let severity = MessageSeverity { error:       true,
+                                     warning:     true,
+                                     information: false,
+                                     verbose:     true, };
 
-	let ty = MessageType::all();
+    let ty = MessageType::all();
 
-	let _debug_callback = DebugCallback::new(&instance, severity, ty, |msg| {
-		                      let severity = if msg.severity.error {
-			                      "error"
-		                      } else if msg.severity.warning {
-			                      "warning"
-		                      } else if msg.severity.information {
-			                      "information"
-		                      } else if msg.severity.verbose {
-			                      "verbose"
-		                      } else {
-			                      panic!("no-impl");
-		                      };
+    let _debug_callback = DebugCallback::new(&instance, severity, ty, |msg| {
+                              let severity = if msg.severity.error {
+                                  "error"
+                              } else if msg.severity.warning {
+                                  "warning"
+                              } else if msg.severity.information {
+                                  "information"
+                              } else if msg.severity.verbose {
+                                  "verbose"
+                              } else {
+                                  panic!("no-impl");
+                              };
 
-		                      let ty = if msg.ty.general {
-			                      "general"
-		                      } else if msg.ty.validation {
-			                      "validation"
-		                      } else if msg.ty.performance {
-			                      "performance"
-		                      } else {
-			                      panic!("no-impl");
-		                      };
+                              let ty = if msg.ty.general {
+                                  "general"
+                              } else if msg.ty.validation {
+                                  "validation"
+                              } else if msg.ty.performance {
+                                  "performance"
+                              } else {
+                                  panic!("no-impl");
+                              };
 
-		                      println!("{} {} {}: {}", msg.layer_prefix, ty, severity, msg.description);
-	                      }).ok();
+                              println!("{} {} {}: {}", msg.layer_prefix, ty, severity, msg.description);
+                          }).ok();
 
-	println!("Devices:");
-	for device in PhysicalDevice::enumerate(&instance) {
-		println!(
-		         "\t{}: {} api: {} driver: {}",
-		         device.index(),
-		         device.name(),
-		         device.api_version(),
-		         device.driver_version()
-		);
-	}
+    println!("Devices:");
+    for device in PhysicalDevice::enumerate(&instance) {
+        println!("\t{}: {} api: {} driver: {}",
+                 device.index(),
+                 device.name(),
+                 device.api_version(),
+                 device.driver_version());
+    }
 
-	let physical = PhysicalDevice::enumerate(&instance).next().expect("No devices available");
-	println!("Using {}", physical.index());
+    let physical = PhysicalDevice::enumerate(&instance).next().expect("No devices available");
+    println!("Using {}", physical.index());
 
-	let event_loop = EventLoop::new();
-	let surface = WindowBuilder::new().with_transparent(true)
-	                                  .with_title("Colorful Game Of Life")
-	                                  .build_vk_surface(&event_loop, instance.clone())?;
-	let window = surface.window();
+    let event_loop = EventLoop::new();
+    let surface = WindowBuilder::new().with_transparent(true)
+                                      .with_title("Colorful Game Of Life")
+                                      .build_vk_surface(&event_loop, instance.clone())?;
+    let window = surface.window();
 
-	for family in physical.queue_families() {
-		println!("Found a queue family with {:?} queue(s)", family.queues_count());
-	}
+    for family in physical.queue_families() {
+        println!("Found a queue family with {:?} queue(s)", family.queues_count());
+    }
 
-	let queue_family = physical.queue_families()
-	                           .find(|&q| q.supports_compute())
-	                           .expect("No device compute queue family available");
+    let queue_family = physical.queue_families()
+                               .find(|&q| q.supports_compute())
+                               .expect("No device compute queue family available");
 
-	let (device, mut queues) = Device::new(
-	                                       physical,
-	                                       &Features::none(),
-	                                       &DeviceExtensions { khr_storage_buffer_storage_class: true,
-	                                                           khr_swapchain: true,
-	                                                           ..DeviceExtensions::none() },
-	                                       [(queue_family, 0.5)].iter().cloned(),
-	)?;
+    let (device, mut queues) = Device::new(physical,
+                                           &Features::none(),
+                                           &DeviceExtensions { khr_storage_buffer_storage_class: true,
+                                                               khr_swapchain: true,
+                                                               ..DeviceExtensions::none() },
+                                           [(queue_family, 0.5)].iter().cloned())?;
 
-	let queue = queues.next().expect("No queues available");
-	let mut dimensions;
+    let queue = queues.next().expect("No queues available");
+    let mut dimensions;
 
-	let (mut swapchain, mut images) = {
-		let caps = surface.capabilities(physical)?;
-		dimensions = caps.current_extent.unwrap_or(window.inner_size().into());
-		let alpha = caps.supported_composite_alpha.iter().next().unwrap();
-		let format = caps.supported_formats
-		                 .iter()
-		                 .find(|format| format.0 == Format::B8G8R8A8Unorm || format.0 == Format::R8G8B8A8Unorm)
-		                 .expect("UNorm format not supported on the surface");
+    let (mut swapchain, mut images) = {
+        let caps = surface.capabilities(physical)?;
+        dimensions = caps.current_extent.unwrap_or(window.inner_size().into());
+        let alpha = caps.supported_composite_alpha.iter().next().unwrap();
+        let format = caps.supported_formats
+                         .iter()
+                         .find(|format| format.0 == Format::B8G8R8A8Unorm || format.0 == Format::R8G8B8A8Unorm)
+                         .expect("UNorm format not supported on the surface");
 
-		Swapchain::new(
-		               device.clone(),
-		               surface.clone(),
-		               caps.min_image_count,
-		               format.0,
-		               dimensions,
-		               1,
-		               caps.supported_usage_flags,
-		               &queue,
-		               SurfaceTransform::Identity,
-		               alpha,
-		               PresentMode::Fifo,
-		               FullscreenExclusive::Allowed,
-		               false,
-		               format.1,
-		)?
-	};
+        Swapchain::new(device.clone(),
+                       surface.clone(),
+                       caps.min_image_count,
+                       format.0,
+                       dimensions,
+                       1,
+                       caps.supported_usage_flags,
+                       &queue,
+                       SurfaceTransform::Identity,
+                       alpha,
+                       PresentMode::Fifo,
+                       FullscreenExclusive::Allowed,
+                       false,
+                       format.1)?
+    };
 
-	#[rustfmt::skip]
-	let mut cells: (Arc<DeviceLocalBuffer<[f32]>>, Arc<DeviceLocalBuffer<[f32]>>) = (
-		DeviceLocalBuffer::array(
-			device.clone(),
-			(dimensions[0] * dimensions[1]) as usize,
-			BufferUsage::all(),
-			[queue_family].iter().cloned(),
-		)?,
-		DeviceLocalBuffer::array(
-			device.clone(),
-			(dimensions[0] * dimensions[1]) as usize,
-			BufferUsage::all(),
-			[queue_family].iter().cloned(),
-		)?,
-	);
+    #[rustfmt::skip]
+    let mut cells: (Arc<DeviceLocalBuffer<[f32]>>, Arc<DeviceLocalBuffer<[f32]>>) = (
+        DeviceLocalBuffer::array(
+            device.clone(),
+            (dimensions[0] * dimensions[1]) as usize,
+            BufferUsage::all(),
+            [queue_family].iter().cloned(),
+        )?,
+        DeviceLocalBuffer::array(
+            device.clone(),
+            (dimensions[0] * dimensions[1]) as usize,
+            BufferUsage::all(),
+            [queue_family].iter().cloned(),
+        )?,
+    );
 
-	let shader = cs::Shader::load(device.clone())?;
-	let compute_pipeline = Arc::new(ComputePipeline::new(device.clone(), &shader.main_entry_point(), &())?);
+    let shader = cs::Shader::load(device.clone())?;
+    let compute_pipeline = Arc::new(ComputePipeline::new(device.clone(), &shader.main_entry_point(), &())?);
 
-	let mut recreate_swapchain = false;
-	let mut regenerate = true;
-	let mut previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<dyn GpuFuture>);
-	let mut frame = 0;
+    let mut recreate_swapchain = false;
+    let mut regenerate = true;
+    let mut previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<dyn GpuFuture>);
+    let mut frame = 0;
 
-	event_loop.run(move |event, _, control_flow| {
-		          *control_flow = ControlFlow::Poll;
+    event_loop.run(move |event, _, control_flow| {
+                  *control_flow = ControlFlow::Poll;
 
-		          match event {
-			          Event::WindowEvent { event: WindowEvent::CloseRequested,
-		                                   .. } => {
-			              *control_flow = ControlFlow::Exit;
-		              },
-			
-			          Event::WindowEvent {
-				          event: WindowEvent::KeyboardInput {
-					          input: KeyboardInput {
-						          virtual_keycode: Some(VirtualKeyCode::R),
-						          state: ElementState::Pressed,
-						          ..
-					          },
-					          ..
-				          },
-				          ..
-			          } => {
-				          println!("Regen request");
-				          regenerate = true;
-			          },
-			
-			          Event::WindowEvent {
-				          event: WindowEvent::KeyboardInput {
-					          input: KeyboardInput {
-						          virtual_keycode: Some(VirtualKeyCode::Q),
-						          state: ElementState::Pressed,
-						          ..
-					          },
-					          ..
-				          },
-				          ..
-			          } => {
-				          *control_flow = ControlFlow::Exit;
-			          },
+                  match event {
+                      Event::WindowEvent { event: WindowEvent::CloseRequested,
+                                           .. } => {
+                          *control_flow = ControlFlow::Exit;
+                      },
+            
+                      Event::WindowEvent {
+                          event: WindowEvent::KeyboardInput {
+                              input: KeyboardInput {
+                                  virtual_keycode: Some(VirtualKeyCode::R),
+                                  state: ElementState::Pressed,
+                                  ..
+                              },
+                              ..
+                          },
+                          ..
+                      } => {
+                          println!("Regen request");
+                          regenerate = true;
+                      },
+            
+                      Event::WindowEvent {
+                          event: WindowEvent::KeyboardInput {
+                              input: KeyboardInput {
+                                  virtual_keycode: Some(VirtualKeyCode::Q),
+                                  state: ElementState::Pressed,
+                                  ..
+                              },
+                              ..
+                          },
+                          ..
+                      } => {
+                          *control_flow = ControlFlow::Exit;
+                      },
 
-		              Event::WindowEvent { event: WindowEvent::Resized(_),
-		                                   .. } => {
-			              recreate_swapchain = true;
-		              },
+                      Event::WindowEvent { event: WindowEvent::Resized(_),
+                                           .. } => {
+                          recreate_swapchain = true;
+                      },
 
-		              Event::RedrawRequested(_) | Event::RedrawEventsCleared => {
-			              loop {
-				              previous_frame_end.as_mut().unwrap().cleanup_finished();
+                      Event::RedrawRequested(_) | Event::RedrawEventsCleared => {
+                          loop {
+                              previous_frame_end.as_mut().unwrap().cleanup_finished();
 
-				              if recreate_swapchain {
-					              dimensions = surface.window().inner_size().into();
+                              if recreate_swapchain {
+                                  dimensions = surface.window().inner_size().into();
 
-					              let (new_swapchain, new_images) = match swapchain.recreate_with_dimensions(dimensions) {
-						              Ok(r) => r,
-					                  // This error tends to happen when the user is manually resizing the window.
-					                  // Simply restarting the loop is the easiest way to fix this issue.
-					                  Err(SwapchainCreationError::UnsupportedDimensions) => continue,
-					                  Err(err) => {
-						                  eprintln!("Failed to recreate swapchain: {:?}", err);
-						                  *control_flow = ControlFlow::Exit;
-						                  return;
-					                  },
-					              };
+                                  let (new_swapchain, new_images) = match swapchain.recreate_with_dimensions(dimensions) {
+                                      Ok(r) => r,
+                                      // This error tends to happen when the user is manually resizing the window.
+                                      // Simply restarting the loop is the easiest way to fix this issue.
+                                      Err(SwapchainCreationError::UnsupportedDimensions) => continue,
+                                      Err(err) => {
+                                          eprintln!("Failed to recreate swapchain: {:?}", err);
+                                          *control_flow = ControlFlow::Exit;
+                                          return;
+                                      },
+                                  };
 
-					              swapchain = new_swapchain;
-					              images = new_images;
-					              regenerate = true;
-					              recreate_swapchain = false;
-				              }
+                                  swapchain = new_swapchain;
+                                  images = new_images;
+                                  regenerate = true;
+                                  recreate_swapchain = false;
+                              }
 
-				              let (image_num, suboptimal, acquire_future) =
-					              match swapchain::acquire_next_image(swapchain.clone(), None) {
-						              Ok(r) => r,
-					                  Err(AcquireError::OutOfDate) => {
-						                  recreate_swapchain = true;
-						                  continue;
-					                  },
-					                  Err(err) => panic!("Failed to acquire next image: {:?}", err),
-					              };
+                              let (image_num, suboptimal, acquire_future) =
+                                  match swapchain::acquire_next_image(swapchain.clone(), None) {
+                                      Ok(r) => r,
+                                      Err(AcquireError::OutOfDate) => {
+                                          recreate_swapchain = true;
+                                          continue;
+                                      },
+                                      Err(err) => panic!("Failed to acquire next image: {:?}", err),
+                                  };
 
-				              if suboptimal {
-					              recreate_swapchain = true;
-				              }
+                              if suboptimal {
+                                  recreate_swapchain = true;
+                              }
 
-				              let layout = compute_pipeline.layout()
-				                                           .descriptor_set_layout(0)
-				                                           .expect("No set 0 in shader.");
+                              let layout = compute_pipeline.layout()
+                                                           .descriptor_set_layout(0)
+                                                           .expect("No set 0 in shader.");
 
-				              std::mem::swap(&mut cells.0, &mut cells.1);
+                              std::mem::swap(&mut cells.0, &mut cells.1);
 
-				              #[rustfmt::skip]
-				              let set = Arc::new(PersistentDescriptorSet::start(layout.clone())
-					              .add_buffer(cells.0.clone()).unwrap()
-					              .add_buffer(cells.1.clone()).unwrap()
-					              .add_image(images[image_num].clone()).unwrap()
-					              .build().unwrap());
+                              #[rustfmt::skip]
+                              let set = Arc::new(PersistentDescriptorSet::start(layout.clone())
+                                  .add_buffer(cells.0.clone()).unwrap()
+                                  .add_buffer(cells.1.clone()).unwrap()
+                                  .add_image(images[image_num].clone()).unwrap()
+                                  .build().unwrap());
 
-				              #[rustfmt::skip]
-				              let command_buffer = AutoCommandBufferBuilder::new(device.clone(), queue.family())
-					              .unwrap()
-				                  .dispatch([dimensions[0] / 8, dimensions[1] / 8, 1],
-				                            compute_pipeline.clone(),
-				                            set.clone(),
-				                            (dimensions[0], dimensions[1], frame, if regenerate {1_u32} else {0_u32}))
-					              .unwrap()
-					              .build()
-					              .unwrap();
+                              #[rustfmt::skip]
+                              let command_buffer = AutoCommandBufferBuilder::new(device.clone(), queue.family())
+                                  .unwrap()
+                                  .dispatch([dimensions[0] / 8, dimensions[1] / 8, 1],
+                                            compute_pipeline.clone(),
+                                            set.clone(),
+                                            (dimensions[0], dimensions[1], frame, if regenerate {1_u32} else {0_u32}))
+                                  .unwrap()
+                                  .build()
+                                  .unwrap();
 
-				              let future = previous_frame_end.take()
-				                                             .unwrap()
-				                                             .join(acquire_future)
-				                                             .then_execute(queue.clone(), command_buffer)
-				                                             .unwrap()
-				                                             .then_swapchain_present(queue.clone(), swapchain.clone(), image_num)
-				                                             .then_signal_fence_and_flush();
+                              let future = previous_frame_end.take()
+                                                             .unwrap()
+                                                             .join(acquire_future)
+                                                             .then_execute(queue.clone(), command_buffer)
+                                                             .unwrap()
+                                                             .then_swapchain_present(queue.clone(), swapchain.clone(), image_num)
+                                                             .then_signal_fence_and_flush();
 
-				              frame += 1;
-				              regenerate = false;
+                              frame += 1;
+                              regenerate = false;
 
-				              match future {
-					              Ok(future) => {
-					                  previous_frame_end = Some(Box::new(future) as Box<_>);
-					                  // println!("Rendered! {}", image_num);
-				                  },
-				                  Err(FlushError::OutOfDate) => {
-					                  recreate_swapchain = true;
-					                  previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<_>);
-				                  },
-				                  Err(e) => {
-					                  println!("{:?}", e);
-					                  previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<_>);
-				                  },
-				              }
+                              match future {
+                                  Ok(future) => {
+                                      previous_frame_end = Some(Box::new(future) as Box<_>);
+                                      // println!("Rendered! {}", image_num);
+                                  },
+                                  Err(FlushError::OutOfDate) => {
+                                      recreate_swapchain = true;
+                                      previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<_>);
+                                  },
+                                  Err(e) => {
+                                      println!("{:?}", e);
+                                      previous_frame_end = Some(Box::new(sync::now(device.clone())) as Box<_>);
+                                  },
+                              }
 
-				              break;
-			              }
-		              },
-		              _ => {},
-		          }
-	          })
+                              break;
+                          }
+                      },
+                      _ => {},
+                  }
+              })
 }
