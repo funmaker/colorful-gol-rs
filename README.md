@@ -5,7 +5,6 @@ Colorful Conway's Game of Life using Compute Shader, Vulkan and Rust
 
 ## TODO:
 
-- Fix crash on resize
 - Refactor code
 - Elevate Vulkano and winit state to structs
 - Remove rustfmt crap

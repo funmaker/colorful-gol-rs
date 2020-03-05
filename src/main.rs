@@ -9,7 +9,7 @@ use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::{Device, DeviceExtensions, Features};
 use vulkano::format::Format;
 use vulkano::instance::debug::{DebugCallback, MessageSeverity, MessageType};
-use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice};
+use vulkano::instance::{Instance, InstanceExtensions, PhysicalDevice, QueueFamily};
 use vulkano::pipeline::ComputePipeline;
 use vulkano::swapchain;
 use vulkano::swapchain::{AcquireError, FullscreenExclusive, PresentMode, SurfaceTransform, Swapchain, SwapchainCreationError};
@@ -19,7 +19,7 @@ use vulkano_win::VkSurfaceBuild;
 
 use winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::WindowBuilder;
+use winit::window::{WindowBuilder, Fullscreen};
 
 mod cs {
     vulkano_shaders::shader! {
@@ -74,29 +74,31 @@ vec3 hsv2rgb(vec3 c) {
 
 void main() {
     ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
-    uint index = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * pconst.width;
-    
+    uint index = (gl_GlobalInvocationID.x % pconst.width)
+               + (gl_GlobalInvocationID.y % pconst.height) * pconst.width;
+
     if(pconst.reset) out_buf.data[index] = hash13(vec3(pos, pconst.frame)) * 2;
     else {
         uint neighs = 0;
         vec3 hues = vec3(0);
-        for(uint y = pos.y - 1; y <= pos.y + 1; y++) {
-            for(uint x = pos.x - 1; x <= pos.x + 1; x++) {
-                if(in_buf.data[x + y * pconst.width] >= 1) {
+        for(int y = pos.y - 1; y <= pos.y + 1; y++) {
+            for(int x = pos.x - 1; x <= pos.x + 1; x++) {
+                uint ngIndex = (x % pconst.width) + (y % pconst.height) * pconst.width;
+                if(in_buf.data[ngIndex] >= 1) {
                     neighs++;
                     hues.yz = hues.xy;
-                    hues.x = in_buf.data[x + y * pconst.width];
+                    hues.x = in_buf.data[ngIndex];
                 }
             }
         }
-        
+
         bool alive = in_buf.data[index] >= 1;
-        
+
         if(!alive && neighs == 3) out_buf.data[index] = getAtIdx(hues, int(floor(mod(hash13(vec3(pos, pconst.frame)), 3. ))));
         else if(alive && (neighs < 3 || neighs > 4)) out_buf.data[index] = in_buf.data[index] - 1;
         else out_buf.data[index] = in_buf.data[index];
     }
-    
+
     vec4 color = vec4(hsv2rgb(vec3(
         fract(out_buf.data[index]),
         1.0,
@@ -105,6 +107,21 @@ void main() {
     imageStore(out_image, pos, color);
 }"
     }
+}
+
+fn generate_buffers<'a, I>(device: Arc<Device>, dimensions: [u32; 2], queue_families: I)
+                           -> Result<(Arc<DeviceLocalBuffer<[f32]>>, Arc<DeviceLocalBuffer<[f32]>>), Box<dyn Error>>
+                           where I: IntoIterator<Item = QueueFamily<'a>> + Clone {
+    Ok((
+        DeviceLocalBuffer::array(device.clone(),
+                                 (dimensions[0] * dimensions[1]) as usize,
+                                 BufferUsage::all(),
+                                 queue_families.clone())?,
+        DeviceLocalBuffer::array(device.clone(),
+                                 (dimensions[0] * dimensions[1]) as usize,
+                                 BufferUsage::all(),
+                                 queue_families.clone())?,
+    ))
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -217,20 +234,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     #[rustfmt::skip]
-    let mut cells: (Arc<DeviceLocalBuffer<[f32]>>, Arc<DeviceLocalBuffer<[f32]>>) = (
-        DeviceLocalBuffer::array(
-            device.clone(),
-            (dimensions[0] * dimensions[1]) as usize,
-            BufferUsage::all(),
-            [queue_family].iter().cloned(),
-        )?,
-        DeviceLocalBuffer::array(
-            device.clone(),
-            (dimensions[0] * dimensions[1]) as usize,
-            BufferUsage::all(),
-            [queue_family].iter().cloned(),
-        )?,
-    );
+    let mut cells = generate_buffers(device.clone(), dimensions.clone(), Some(queue_family))?;
 
     let shader = cs::Shader::load(device.clone())?;
     let compute_pipeline = Arc::new(ComputePipeline::new(device.clone(), &shader.main_entry_point(), &())?);
@@ -248,7 +252,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                            .. } => {
                           *control_flow = ControlFlow::Exit;
                       },
-            
+
                       Event::WindowEvent {
                           event: WindowEvent::KeyboardInput {
                               input: KeyboardInput {
@@ -263,7 +267,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                           println!("Regen request");
                           regenerate = true;
                       },
-            
+
                       Event::WindowEvent {
                           event: WindowEvent::KeyboardInput {
                               input: KeyboardInput {
@@ -276,6 +280,28 @@ fn main() -> Result<(), Box<dyn Error>> {
                           ..
                       } => {
                           *control_flow = ControlFlow::Exit;
+                      },
+
+                      Event::WindowEvent {
+                          event: WindowEvent::KeyboardInput {
+                              input: KeyboardInput {
+                                  virtual_keycode: Some(VirtualKeyCode::F),
+                                  state: ElementState::Pressed,
+                                  ..
+                              },
+                              ..
+                          },
+                          ..
+                      } => {
+                          let window = surface.window();
+
+                          if let None = window.fullscreen() {
+                              window.set_fullscreen(Some(Fullscreen::Borderless(window.current_monitor())));
+                              window.set_cursor_visible(false);
+                          } else {
+                              window.set_fullscreen(None);
+                              window.set_cursor_visible(true);
+                          }
                       },
 
                       Event::WindowEvent { event: WindowEvent::Resized(_),
@@ -302,6 +328,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                                       },
                                   };
 
+                                  cells = generate_buffers(device.clone(),
+                                                           dimensions.clone(),
+                                                           cells.0.queue_families().clone()).unwrap();
+
                                   swapchain = new_swapchain;
                                   images = new_images;
                                   regenerate = true;
@@ -317,6 +347,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                                       },
                                       Err(err) => panic!("Failed to acquire next image: {:?}", err),
                                   };
+
+                              if image_num > 2 {
+                                  eprintln!("Acquire_next_image returned {}! Skipping render.", image_num);
+                                  return;
+                              }
 
                               if suboptimal {
                                   recreate_swapchain = true;
@@ -338,7 +373,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                               #[rustfmt::skip]
                               let command_buffer = AutoCommandBufferBuilder::new(device.clone(), queue.family())
                                   .unwrap()
-                                  .dispatch([dimensions[0] / 8, dimensions[1] / 8, 1],
+                                  .dispatch([dimensions[0] / 8 + 1, dimensions[1] / 8 + 1, 1],
                                             compute_pipeline.clone(),
                                             set.clone(),
                                             (dimensions[0], dimensions[1], frame, if regenerate {1_u32} else {0_u32}))
